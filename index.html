@@ -4,6 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0B1F3A" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Rondas GSD" />
   <meta name="description" content="Sistema de control y seguimiento de rondas GSD El Salvador" />
   <title>Control de Rondas GSD</title>
 
@@ -429,6 +436,58 @@
         font-size:24px;
       }
     }
+
+    [hidden]{
+      display:none !important;
+    }
+
+    .install-btn{
+      width:100%;
+      margin-top:12px;
+      border:none;
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:9px;
+      border-radius:16px;
+      padding:13px 16px;
+      font-weight:600;
+      color:#eafcf5;
+      background:linear-gradient(180deg, #20c997, #149c74);
+      box-shadow:0 10px 24px rgba(32,201,151,.22);
+      transition:.22s ease;
+    }
+
+    .install-btn:hover{
+      filter:brightness(1.06);
+      transform:translateY(-1px);
+    }
+
+    .install-btn svg{
+      flex:none;
+    }
+
+    .topbar .install-btn{
+      width:auto;
+      margin-top:0;
+      padding:11px 14px;
+      border-radius:14px;
+      font-weight:500;
+    }
+
+    .help-steps{
+      margin:6px 0 0;
+      padding-left:20px;
+      color:#dbe6f6;
+      font-size:14px;
+      line-height:1.7;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+
+    .help-steps strong{ color:#fff; }
   </style>
 </head>
 <body>
@@ -441,6 +500,10 @@
       </div>
 
       <div class="topbar-right">
+        <button class="install-btn" id="installBtnViewer" type="button" hidden>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 21h16"/></svg>
+          Instalar app
+        </button>
         <a class="secondary-btn" id="openExternalBtn" href="#" target="_blank" rel="noopener noreferrer">
           Abrir fuera
         </a>
@@ -496,8 +559,32 @@
           </div>
         </form>
 
+        <button class="install-btn" id="installBtnModal" type="button" hidden>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 21h16"/></svg>
+          Instalar aplicación
+        </button>
+
         <div class="footer-note">
           GSD CMC © <span id="year"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="installHelpModal" aria-hidden="true" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <div class="modal-header">
+        <h2 class="modal-title" id="helpTitle" style="font-size:22px;">Instalar en iPhone / iPad</h2>
+        <p class="modal-subtitle">Safari no permite la instalación automática; sigue estos pasos:</p>
+      </div>
+      <div class="modal-body">
+        <ol class="help-steps">
+          <li>Toca el botón <strong>Compartir</strong> de Safari (el cuadro con la flecha hacia arriba).</li>
+          <li>Desliza hacia abajo y elige <strong>&laquo;Agregar a pantalla de inicio&raquo;</strong>.</li>
+          <li>Toca <strong>Agregar</strong> y la app quedará instalada.</li>
+        </ol>
+        <div class="modal-actions">
+          <button class="primary-btn" id="closeHelpBtn" type="button">Entendido</button>
         </div>
       </div>
     </div>
@@ -773,8 +860,91 @@
       abrirFormulario(formularioAsignado, sesion);
     }
 
+
+    // ---------- PWA: instalación ----------
+    const installBtnModal = document.getElementById("installBtnModal");
+    const installBtnViewer = document.getElementById("installBtnViewer");
+    const installHelpModal = document.getElementById("installHelpModal");
+    const closeHelpBtn = document.getElementById("closeHelpBtn");
+
+    let deferredPrompt = null;
+
+    const esIOS =
+      /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+    function appInstalada() {
+      return (
+        window.matchMedia("(display-mode: standalone)").matches ||
+        window.matchMedia("(display-mode: fullscreen)").matches ||
+        window.navigator.standalone === true
+      );
+    }
+
+    function actualizarBotonesInstalacion() {
+      if (appInstalada()) {
+        // Ya instalada: el botón desaparece por completo
+        installBtnModal.hidden = true;
+        installBtnViewer.hidden = true;
+        return;
+      }
+      const mostrar = deferredPrompt !== null || esIOS;
+      installBtnModal.hidden = !mostrar;
+      installBtnViewer.hidden = !mostrar;
+    }
+
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault(); // guarda el evento para usarlo con nuestro propio botón
+      deferredPrompt = e;
+      actualizarBotonesInstalacion();
+    });
+
+    window.addEventListener("appinstalled", () => {
+      deferredPrompt = null;
+      actualizarBotonesInstalacion();
+      mostrarToast("¡Aplicación instalada correctamente!", "success");
+    });
+
+    const mqStandalone = window.matchMedia("(display-mode: standalone)");
+    if (mqStandalone.addEventListener) {
+      mqStandalone.addEventListener("change", actualizarBotonesInstalacion);
+    }
+
+    async function manejarInstalacion() {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === "accepted") {
+          mostrarToast("Instalando aplicación...", "success");
+        }
+        deferredPrompt = null;
+        actualizarBotonesInstalacion();
+      } else if (esIOS) {
+        installHelpModal.hidden = false;
+        installHelpModal.setAttribute("aria-hidden", "false");
+      }
+    }
+
+    installBtnModal.addEventListener("click", manejarInstalacion);
+    installBtnViewer.addEventListener("click", manejarInstalacion);
+
+    closeHelpBtn.addEventListener("click", () => {
+      installHelpModal.hidden = true;
+      installHelpModal.setAttribute("aria-hidden", "true");
+    });
+
+    // Service Worker: requisito para que el navegador ofrezca instalar la app
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker
+          .register("sw.js")
+          .catch((err) => console.error("No se pudo registrar el SW:", err));
+      });
+    }
+
+    actualizarBotonesInstalacion();
+
     iniciarAplicacion();
   </script>
-<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495" integrity="sha512-iIg7k2xntmwu6/uSb5tpc/hySgZc4eoL31yB29W6tJFo2akwjPWcEqnCEdJvGexCL0KEQwVYv5BlowfhVz26hg==" data-cf-beacon='{"version":"2024.11.0","token":"1954b47c125f43f8b4338b3c4f804e4f","spa":2}' crossorigin="anonymous"></script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a3b23c9dab775d95',t:'MTc4OTQxODc0MQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 </html>
